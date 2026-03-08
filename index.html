@@ -28,7 +28,6 @@
       position: absolute;
       top: 0;
       left: 0;
-      /* 애니메이션 최적화: transform만 사용하여 GPU 가속 유도 */
       transform-origin: 0 0;
       transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
       will-change: transform; 
@@ -85,7 +84,12 @@
   </div>
 
   <div id="iframe-wrapper">
-    <iframe id="dashboard-frame" style="border: 1px solid rgba(0, 0, 0, 0.1);" width="800" height="450" src="https://embed.figma.com/design/V2BDvQ9KPzG04rpXjgGqdE/SOUND360-Dashboard?node-id=0-1&embed-host=share" allowfullscreen></iframe>
+    <iframe
+      id="dashboard-frame"
+      style="border: none; width: 100vw; height: 100vh; display: block;"
+      src="https://embed.figma.com/design/V2BDvQ9KPzG04rpXjgGqdE/SOUND360-Dashboard?node-id=0-1&embed-host=share&hide-ui=1"
+      allowfullscreen>
+    </iframe>
   </div>
 
   <button class="fab-btn" onclick="openSearchPortal()" title="통합 검색 열기" aria-label="통합 검색 열기">
@@ -94,7 +98,6 @@
 
   <script>
     const SHEET_ACTUAL_WIDTH = 2000; 
-    // 높이값을 1350으로 정밀 조정 (아까보다 살짝 더 높은 수준)
     const SHEET_ACTUAL_HEIGHT = 1350; 
     const REFRESH_INTERVAL = 600000; 
     
@@ -118,14 +121,11 @@
         translateX = 0;
       } else {
         scaleRatio = windowHeight / SHEET_ACTUAL_HEIGHT;
-        // 중앙 정렬을 위한 이동값 계산 (폭 차이의 절반)
         translateX = (windowWidth - (SHEET_ACTUAL_WIDTH * scaleRatio)) / 2;
       }
 
       iframe.style.width = SHEET_ACTUAL_WIDTH + 'px';
       iframe.style.height = (windowHeight / scaleRatio) + 'px';
-      
-      // 모든 이동과 크기 조절을 하나의 transform 속성으로 통합하여 애니메이션 최적화
       iframe.style.transform = `translate3d(${translateX}px, 0, 0) scale(${scaleRatio})`;
     }
 

@@ -1,23 +1,176 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard2</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOUND360 Global Catalog Dashboard</title>
+  
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@300..800&display=swap" rel="stylesheet">
+  
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f5f5f5;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    html, body { 
+      width: 100%; height: 100%; overflow: hidden; 
+      background-color: #f0f0f0; 
+      font-family: 'Google Sans Code', monospace;
     }
-    h1 {
-      color: #333;
+
+    #iframe-wrapper { 
+      width: 100%; height: 100%; overflow: hidden; position: relative; 
     }
+
+    #dashboard-frame { 
+      border: 0; display: block; 
+      position: absolute;
+      top: 0;
+      left: 0;
+      /* 애니메이션 최적화: transform만 사용하여 GPU 가속 유도 */
+      transform-origin: 0 0;
+      transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+      will-change: transform; 
+    }
+
+    .top-controls {
+      position: fixed; top: 15px; right: 15px;
+      display: flex; align-items: center; gap: 10px;
+      z-index: 1001;
+    }
+
+    .glass-panel {
+      padding: 6px 14px;
+      background-color: rgba(0, 0, 0, 0.3);
+      color: white; border-radius: 20px;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px;
+    }
+
+    #mode-toggle-btn {
+      cursor: pointer; border: none; outline: none;
+      transition: background-color 0.2s ease, transform 0.2s ease;
+      pointer-events: auto;
+    }
+    #mode-toggle-btn:hover { background-color: rgba(0, 0, 0, 0.5); transform: translateY(-1px); }
+
+    .fab-btn {
+      position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px;
+      background-color: rgba(0, 123, 255, 0.4); color: white; border: none; 
+      border-radius: 50%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 1000;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .fab-btn:hover { transform: scale(1.1); background-color: rgba(0, 123, 255, 0.6); }
+    .fab-btn i { font-size: 30px; }
   </style>
 </head>
 <body>
-  <h1>Dashboard2</h1>
-  <p>Welcome to the dashboard.</p>
+  
+  <div class="top-controls">
+    <button id="mode-toggle-btn" class="glass-panel" onclick="toggleViewMode()" title="보기 모드 전환">
+      <i id="mode-icon" class="material-icons" style="font-size: 16px;">height</i>
+      <span id="mode-text">Fit Height</span>
+    </button>
+
+    <div id="refresh-timer" class="glass-panel">
+      <i class="material-icons" style="font-size: 16px;">update</i>
+      <span style="white-space: nowrap; font-weight: 400;">Refresh:</span>
+      <span id="timer-count" style="font-weight: 600;">09:59</span>
+    </div>
+  </div>
+
+  <div id="iframe-wrapper">
+    <iframe id="dashboard-frame" style="border: 1px solid rgba(0, 0, 0, 0.1);" width="800" height="450" src="https://embed.figma.com/design/V2BDvQ9KPzG04rpXjgGqdE/SOUND360-Dashboard?node-id=0-1&embed-host=share" allowfullscreen></iframe>
+  </div>
+
+  <button class="fab-btn" onclick="openSearchPortal()" title="통합 검색 열기" aria-label="통합 검색 열기">
+    <i class="material-icons">search</i>
+  </button>
+
+  <script>
+    const SHEET_ACTUAL_WIDTH = 2000; 
+    // 높이값을 1350으로 정밀 조정 (아까보다 살짝 더 높은 수준)
+    const SHEET_ACTUAL_HEIGHT = 1350; 
+    const REFRESH_INTERVAL = 600000; 
+    
+    const iframe = document.getElementById('dashboard-frame');
+    const timerCount = document.getElementById('timer-count');
+    const modeIcon = document.getElementById('mode-icon');
+    const modeText = document.getElementById('mode-text');
+    
+    let viewMode = 'width'; 
+    let timeLeft = (REFRESH_INTERVAL / 1000) - 1; 
+    let ticking = false;
+
+    function applyScaling() {
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
+      let scaleRatio;
+      let translateX = 0;
+
+      if (viewMode === 'width') {
+        scaleRatio = windowWidth / SHEET_ACTUAL_WIDTH;
+        translateX = 0;
+      } else {
+        scaleRatio = windowHeight / SHEET_ACTUAL_HEIGHT;
+        // 중앙 정렬을 위한 이동값 계산 (폭 차이의 절반)
+        translateX = (windowWidth - (SHEET_ACTUAL_WIDTH * scaleRatio)) / 2;
+      }
+
+      iframe.style.width = SHEET_ACTUAL_WIDTH + 'px';
+      iframe.style.height = (windowHeight / scaleRatio) + 'px';
+      
+      // 모든 이동과 크기 조절을 하나의 transform 속성으로 통합하여 애니메이션 최적화
+      iframe.style.transform = `translate3d(${translateX}px, 0, 0) scale(${scaleRatio})`;
+    }
+
+    function toggleViewMode() {
+      viewMode = (viewMode === 'width') ? 'height' : 'width';
+      modeIcon.innerText = (viewMode === 'width') ? 'height' : 'width_full';
+      modeText.innerText = (viewMode === 'width') ? 'Fit Height' : 'Fit Width';
+      applyScaling();
+    }
+
+    function refreshIframeOnly() {
+      const url = new URL(iframe.src);
+      url.searchParams.set('t', new Date().getTime());
+      iframe.src = url.toString();
+      timeLeft = (REFRESH_INTERVAL / 1000) - 1; 
+    }
+
+    function updateTimer() {
+      if (timeLeft < 0) refreshIframeOnly();
+      const minutes = Math.floor(timeLeft / 60);
+      const seconds = timeLeft % 60;
+      timerCount.innerText = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      timeLeft--;
+    }
+
+    window.addEventListener('resize', () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          applyScaling();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    });
+    
+    applyScaling();
+    setInterval(updateTimer, 1000); 
+
+    function openSearchPortal() {
+      const scriptUrl = "https://script.google.com/a/macros/audioguyrecords.com/s/AKfycbyBVrgIAtTDZJIz6ikyLEgIdFG0LFY5JLtyABnxVPwtwCf0exbJW4uk7TrqJB6Ocp4d/exec";
+      const width = 1000; const height = 800;
+      const left = (window.screen.width / 2) - (width / 2);
+      const top = (window.screen.height / 2) - (height / 2);
+      window.open(scriptUrl, "MusicSearchPortal", `width=${width},height=${height},top=${top},left=${left},resizable=yes,scrollbars=yes`);
+    }
+  </script>
 </body>
 </html>
